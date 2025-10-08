@@ -10,28 +10,28 @@
 # ============================================================================
 
 # Step 1: Core utilities first
-numpy==1.24.3
-requests==2.31.0
+numpy
+requests
 
 # Step 2: PyTorch ecosystem (GPU compatible)
-torch==2.1.0
-torchvision==0.16.0
-torchaudio==2.1.0
+torch
+torchvision
+torchaudio
 
 # Step 3: Transformers & dependencies
 transformers
-tokenizers==0.15.0
-huggingface-hub==0.19.4
+tokenizers
+huggingface-hub
 
 # Step 4: Sentence Transformers (after PyTorch & Transformers)
 sentence-transformers
 
 # Step 5: Scientific computing
-scipy==1.11.4
-scikit-learn==1.3.2
+scipy
+scikit-learn
 
 # Step 6: FAISS for vector search
-faiss-cpu==1.7.4
+faiss-cpu
 
 # ============================================================================
 # WEB FRAMEWORK
@@ -43,7 +43,7 @@ pydantic==2.5.0
 # ============================================================================
 # AI API CLIENT (Install LAST to avoid conflicts)
 # ============================================================================
-cerebras-cloud-sdk==1.0.0
+cerebras-cloud-sdk
 
 # ============================================================================
 # NOTES
