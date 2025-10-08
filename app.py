@@ -10,7 +10,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 # --- Konfigurasi Stub, Volume, dan Secret ---
-stub = modal.Stub(name="simple-web-agent")
+stub = modal.App(name="simple-web-agent")
 volume = modal.Volume.persisted("intelligence-data-volume")
 cerebras_secret = modal.Secret.from_name("cerebras-api-key")
 
