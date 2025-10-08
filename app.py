@@ -844,7 +844,7 @@ async def test_packages():
     
     return results
 
-@app.function(image=image, volumes={"/cache": volume}, secrets=[cerebras_secret], timeout=900, cpu=2.0, memory=4096)
+@app.function(image=image, volumes={"/cache": volume}, secrets=[cerebras_secret], timeout=900, cpu=4.0, memory=8192, gpu="T4", ephemeral_storage=10240)
 @web_app.post("/api/execute_mission")
 def execute_mission(request: MissionRequest):
     try:
