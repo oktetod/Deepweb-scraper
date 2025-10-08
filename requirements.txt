@@ -1,0 +1,13 @@
+# requirements.txt
+
+modal
+fastapi
+uvicorn
+sentence-transformers
+faiss-cpu
+beautifulsoup4
+lxml
+cerebras-cloud-sdk
+numpy
+streamlit==1.33.0
+starlette-streamlit
