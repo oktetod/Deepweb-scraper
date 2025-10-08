@@ -67,19 +67,11 @@ class MissionRequest(BaseModel):
             raise ValueError('Mission cannot be empty')
         return v.strip()
 
-class ErrorResponse(BaseModel):
-    """Standard error response"""
-    error: str
-    detail: Optional[str] = None
-    timestamp: float
-
-class HealthResponse(BaseModel):
-    """Health check response"""
-    status: str
-    uptime: float
-    documents: int
-    cache_size: int
-    timestamp: float
+class DocumentRequest(BaseModel):
+    """Request model for adding documents"""
+    text: str = Field(..., min_length=50)
+    url: str = ""
+    title: str = ""
 
 # ============================================================================
 # FASTAPI APPLICATION
@@ -111,15 +103,6 @@ async def logging_middleware(request: Request, call_next):
     logger.info(f"← {request.method} {request.url.path} [{response.status_code}] {duration:.3f}s")
     return response
 
-# Security headers
-@web_app.middleware("http")
-async def security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    return response
-
 # ============================================================================
 # FRONTEND UI
 # ============================================================================
@@ -136,6 +119,7 @@ async def serve_frontend(request: Request):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intelligence Agent System</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
@@ -336,34 +320,6 @@ async def serve_frontend(request: Request):
             font-size: 1.25rem;
         }}
         
-        .report-content h4 {{
-            color: var(--text);
-            margin-top: 15px;
-            margin-bottom: 10px;
-        }}
-        
-        .report-content strong {{ color: var(--primary); }}
-        .report-content em {{ color: var(--success); }}
-        
-        .execution-log {{
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.85rem;
-            max-height: 500px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-        }}
-        
-        .execution-log::-webkit-scrollbar {{ width: 10px; }}
-        .execution-log::-webkit-scrollbar-track {{ background: var(--bg); }}
-        .execution-log::-webkit-scrollbar-thumb {{ 
-            background: var(--border); 
-            border-radius: 5px;
-        }}
-        
         .success-badge {{
             display: inline-block;
             background: rgba(16, 185, 129, 0.2);
@@ -389,7 +345,6 @@ async def serve_frontend(request: Request):
         @media (max-width: 768px) {{
             .header h1 {{ font-size: 1.8rem; }}
             .button-group {{ flex-direction: column; }}
-            .status-bar {{ flex-direction: column; gap: 10px; text-align: center; }}
         }}
     </style>
 </head>
@@ -412,14 +367,13 @@ async def serve_frontend(request: Request):
         
         <div class="card">
             <h2 style="margin-bottom: 10px; color: var(--primary);">Mission Control</h2>
-            <p style="color: var(--text-dim); margin-bottom: 20px; line-height: 1.6;">
-                Describe your intelligence objective. The AI agent will autonomously plan, 
-                execute multi-step investigations, and deliver a comprehensive report.
+            <p style="color: var(--text-dim); margin-bottom: 20px;">
+                Describe your intelligence objective. The AI agent will plan and execute.
             </p>
             
             <textarea 
                 id="missionInput" 
-                placeholder="Example: Investigate recent LockBit ransomware attacks and analyze their TTPs..."
+                placeholder="Example: Investigate LockBit ransomware attacks..."
             ></textarea>
             
             <div class="button-group">
@@ -427,16 +381,13 @@ async def serve_frontend(request: Request):
                     <span id="btnText">🚀 Execute Mission</span>
                     <div class="spinner" id="spinner"></div>
                 </button>
-                <button class="btn-secondary" onclick="clearAll()">
-                    🗑️ Clear
-                </button>
+                <button class="btn-secondary" onclick="clearAll()">🗑️ Clear</button>
             </div>
         </div>
         
         <div class="output" id="output">
             <div class="report-header">📊 Mission Report</div>
             <div class="report-content" id="reportContent"></div>
-            <div class="execution-log" id="executionLog"></div>
         </div>
     </div>
 
@@ -451,8 +402,7 @@ async def serve_frontend(request: Request):
                 document.getElementById('systemInfo').textContent = 
                     `📚 ${{data.documents}} docs | ⏱️ ${{Math.floor(data.uptime)}}s uptime`;
             }} catch (e) {{
-                console.error('Health check failed:', e);
-                document.getElementById('systemInfo').textContent = '⚠️ Health check failed';
+                document.getElementById('systemInfo').textContent = '⚠️ System check failed';
             }}
         }}
         
@@ -463,13 +413,12 @@ async def serve_frontend(request: Request):
             const mission = document.getElementById('missionInput').value.trim();
             const output = document.getElementById('output');
             const reportContent = document.getElementById('reportContent');
-            const execLog = document.getElementById('executionLog');
             const btn = document.getElementById('executeBtn');
             const btnText = document.getElementById('btnText');
             const spinner = document.getElementById('spinner');
 
             if (!mission || mission.length < 10) {{
-                alert('⚠️ Mission must be at least 10 characters long');
+                alert('⚠️ Mission must be at least 10 characters');
                 return;
             }}
 
@@ -477,64 +426,32 @@ async def serve_frontend(request: Request):
             btnText.textContent = 'Processing...';
             spinner.classList.add('active');
             output.classList.add('active');
-            reportContent.innerHTML = '<p style="color: var(--text-dim); padding: 20px;">🔄 AI agent is planning and executing your mission...</p>';
-            execLog.style.display = 'none';
-
-            const startTime = Date.now();
+            reportContent.innerHTML = '<p style="padding: 20px;">🔄 AI agent is working...</p>';
 
             try {{
                 const res = await fetch(API_URL, {{
                     method: 'POST',
-                    headers: {{ 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }},
+                    headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{ mission }})
                 }});
 
-                const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-
-                if (!res.ok) {{
-                    const err = await res.json();
-                    throw new Error(err.error || err.detail || `HTTP ${{res.status}}`);
-                }}
-
+                if (!res.ok) throw new Error(`HTTP ${{res.status}}`);
                 const data = await res.json();
                 
                 if (data.success) {{
                     reportContent.innerHTML = `
-                        <div class="success-badge">
-                            ✅ Mission completed successfully in ${{duration}}s
-                        </div>
+                        <div class="success-badge">✅ Mission completed</div>
                         ${{formatMarkdown(data.final_report)}}
                     `;
                 }} else {{
                     reportContent.innerHTML = `
-                        <div class="error-badge">
-                            ❌ Mission failed: ${{data.error || 'Unknown error'}}
-                        </div>
-                        <p style="color: var(--text-dim); margin-top: 15px;">
-                            Please try again or refine your mission description.
-                        </p>
+                        <div class="error-badge">❌ Error: ${{data.error || 'Unknown'}}</div>
                     `;
                 }}
-                
-                if (data.execution_log && data.execution_log.length > 0) {{
-                    execLog.style.display = 'block';
-                    execLog.innerHTML = '<strong style="color: var(--primary);">📋 Execution Log:</strong><br><br>' + 
-                        JSON.stringify(data.execution_log, null, 2);
-                }}
-
             }} catch (error) {{
                 reportContent.innerHTML = `
-                    <div class="error-badge">
-                        ❌ Error: ${{error.message}}
-                    </div>
-                    <p style="color: var(--text-dim); margin-top: 15px;">
-                        ${{error.message.includes('timeout') ? 'The request timed out. Please try again.' : 'An unexpected error occurred.'}}
-                    </p>
+                    <div class="error-badge">❌ Error: ${{error.message}}</div>
                 `;
-                console.error('Error:', error);
             }} finally {{
                 btn.disabled = false;
                 btnText.textContent = '🚀 Execute Mission';
@@ -545,28 +462,15 @@ async def serve_frontend(request: Request):
         function formatMarkdown(text) {{
             return text
                 .replace(/\\n/g, '<br>')
-                .replace(/\\*\\*\\*(.+?)\\*\\*\\*/g, '<strong><em>$1</em></strong>')
                 .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-                .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
-                .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
                 .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-                .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-                .replace(/^- (.+)$/gm, '<div style="margin-left: 20px;">• $1</div>')
-                .replace(/^\\d+\\. (.+)$/gm, '<div style="margin-left: 20px;"># Secrets
-cerebras_secret = modal.Secret.from_name("cerebras-api-</div>');
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>');
         }}
         
         function clearAll() {{
             document.getElementById('missionInput').value = '';
             document.getElementById('output').classList.remove('active');
         }}
-        
-        document.getElementById('missionInput').addEventListener('keydown', function(e) {{
-            if (e.ctrlKey && e.key === 'Enter') {{
-                executeMission();
-            }}
-        }});
     </script>
 </body>
 </html>"""
@@ -576,50 +480,20 @@ cerebras_secret = modal.Secret.from_name("cerebras-api-</div>');
 # API ENDPOINTS
 # ============================================================================
 
-@web_app.get("/health", response_model=HealthResponse)
+@web_app.get("/health")
 async def health_check():
     """System health check"""
     try:
         from agent import IntelligenceSystem
         system = IntelligenceSystem()
         health = system.get_health_status()
-        
-        return HealthResponse(
-            status=health["status"],
-            uptime=health["uptime"],
-            documents=health["documents"],
-            cache_size=health["cache_size"],
-            timestamp=time.time()
-        )
+        return health
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return HealthResponse(
-            status="unhealthy",
-            uptime=0,
-            documents=0,
-            cache_size=0,
-            timestamp=time.time()
-        )
-
-@web_app.get("/metrics")
-async def get_metrics():
-    """Get system metrics"""
-    try:
-        from agent import IntelligenceSystem
-        system = IntelligenceSystem()
-        health = system.get_health_status()
-        
-        return {
-            "timestamp": time.time(),
-            "system": health,
-            "version": "2.0.0"
-        }
-    except Exception as e:
-        logger.error(f"Metrics failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "unhealthy", "error": str(e)}
 
 # ============================================================================
-# MODAL FUNCTION FOR MISSION EXECUTION
+# MODAL FUNCTIONS
 # ============================================================================
 
 @app.function(
@@ -634,33 +508,16 @@ async def get_metrics():
 )
 @web_app.post("/api/execute_mission")
 def execute_mission(request: MissionRequest):
-    """
-    Execute intelligence mission
-    
-    This endpoint orchestrates autonomous mission execution by the AI agent.
-    """
+    """Execute intelligence mission"""
     try:
-        logger.info(f"🎯 Mission received: {request.mission[:100]}...")
-        
+        logger.info(f"Mission: {request.mission[:100]}...")
         from agent import IntelligenceSystem
         agent = IntelligenceSystem()
-        
-        # Execute mission (SYNC version - no await needed)
         result = agent.execute_mission({"mission": request.mission})
-        
-        logger.info(f"✅ Mission result: {result.get('success', False)}")
         return result
-        
-    except ValueError as e:
-        logger.error(f"Validation error: {e}")
-        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f"Execution failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}")
-
-# ============================================================================
-# ADMIN ENDPOINTS (Document Management)
-# ============================================================================
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.function(
     image=image,
@@ -668,15 +525,17 @@ def execute_mission(request: MissionRequest):
     secrets=[cerebras_secret]
 )
 @web_app.post("/api/add_document")
-def add_document(text: str, url: str = "", title: str = ""):
-    """Add new document to database"""
+def add_document(request: DocumentRequest):
+    """Add document to database"""
     try:
         from agent import IntelligenceSystem
         agent = IntelligenceSystem()
-        result = agent.add_document(text=text, url=url, title=title)
-        return result
+        return agent.add_document(
+            text=request.text,
+            url=request.url,
+            title=request.title
+        )
     except Exception as e:
-        logger.error(f"Add document failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
@@ -687,5 +546,5 @@ def add_document(text: str, url: str = "", title: str = ""):
 @modal.asgi_app()
 def fastapi_app():
     """Modal ASGI entry point"""
-    logger.info("🚀 Starting Intelligence Agent System v2.0...")
+    logger.info("🚀 Starting Intelligence Agent System...")
     return web_app
