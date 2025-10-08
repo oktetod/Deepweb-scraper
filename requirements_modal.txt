@@ -24,7 +24,7 @@ tokenizers==0.15.0
 huggingface-hub==0.19.4
 
 # Step 4: Sentence Transformers (after PyTorch & Transformers)
-sentence-transformers==2.2.2
+sentence-transformers
 
 # Step 5: Scientific computing
 scipy==1.11.4
