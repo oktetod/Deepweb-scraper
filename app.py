@@ -637,7 +637,7 @@ cerebras_secret = modal.Secret.from_name("cerebras-api-key")
 
 # Use requirements.txt for package installation
 image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.12")
     .pip_install_from_requirements("requirements_modal.txt")
 )
 
