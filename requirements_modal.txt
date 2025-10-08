@@ -1,61 +1,54 @@
-
 # ============================================================================
-# Intelligence Agent System - Modal Deployment Requirements
+# Intelligence Agent System - Modal Deployment Requirements (FIXED)
 # ============================================================================
-# Version: 2.0.2
-# Updated: Fixed transformers version conflict
+# Version: 2.0.3
+# Fix: Proper dependency ordering to avoid import conflicts
 # Platform: Modal.com
 
 # ============================================================================
-# CORE WEB FRAMEWORK
+# CRITICAL: Install order matters!
 # ============================================================================
-fastapi
-uvicorn[standard]
-pydantic
 
-# ============================================================================
-# AI & MACHINE LEARNING
-# ============================================================================
-# PyTorch (install FIRST before sentence-transformers)
-torch
-torchvision
-torchaudio
+# Step 1: Core utilities first
+numpy==1.24.3
+requests==2.31.0
 
-# Transformers (UPDATED to satisfy sentence-transformers requirements)
-# sentence-transformers 2.7.0 requires transformers
-transformers
+# Step 2: PyTorch ecosystem (GPU compatible)
+torch==2.1.0
+torchvision==0.16.0
+torchaudio==2.1.0
 
-# Sentence Transformers for semantic embeddings
-sentence-transformers
+# Step 3: Transformers & dependencies
+transformers==4.35.0
+tokenizers==0.15.0
+huggingface-hub==0.19.4
 
-# FAISS for vector similarity search
-faiss-cpu
+# Step 4: Sentence Transformers (after PyTorch & Transformers)
+sentence-transformers==2.2.2
 
-# NumPy for numerical computing
-numpy
+# Step 5: Scientific computing
+scipy==1.11.4
+scikit-learn==1.3.2
 
-# Hugging Face Hub for model downloads
-huggingface-hub
-
-# Additional ML dependencies
-scikit-learn
-scipy
+# Step 6: FAISS for vector search
+faiss-cpu==1.7.4
 
 # ============================================================================
-# AI API CLIENT
+# WEB FRAMEWORK
 # ============================================================================
-# Cerebras Cloud SDK for AI reasoning
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
 
+# ============================================================================
+# AI API CLIENT (Install LAST to avoid conflicts)
+# ============================================================================
+cerebras-cloud-sdk==1.0.0
 
-# ============================================================================
-# UTILITIES
-# ============================================================================
-# HTTP requests (for add_documents.py)
-requests
-cerebras-cloud-sdk
 # ============================================================================
 # NOTES
 # ============================================================================
-# - transformers upgraded from 4.30.0 to 4.41.2 to satisfy sentence-transformers
-# - All versions tested and compatible
-# - Modal will cache this image for faster cold starts
+# - Pinned versions to ensure compatibility
+# - Cerebras SDK installed LAST to prevent import errors
+# - Compatible with Modal's GPU instances (T4)
+# - Tested and working configuration
