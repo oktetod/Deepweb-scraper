@@ -19,7 +19,7 @@ torchvision==0.16.0
 torchaudio==2.1.0
 
 # Step 3: Transformers & dependencies
-transformers==4.35.0
+transformers
 tokenizers==0.15.0
 huggingface-hub==0.19.4
 
