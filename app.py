@@ -2,7 +2,7 @@
 Intelligence Agent System - All-in-One File
 Combines app.py + agent.py for Modal v0.63+ compatibility
 """
-
+from cerebras.cloud.sdk import Cerebras
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
