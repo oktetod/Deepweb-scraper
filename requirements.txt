@@ -1,40 +1,52 @@
-# Intelligence Agent System - Production Dependencies
-# Updated and tested versions
+# ============================================================================
+# Intelligence Agent System - Modal Deployment Requirements
+# ============================================================================
+# Version: 2.0.1
+# Updated: Fixed Cerebras SDK installation
+# Platform: Modal.com
 
 # ============================================================================
-# CORE FRAMEWORK
+# CORE WEB FRAMEWORK
 # ============================================================================
-modal==0.63.96                 # Serverless deployment platform
-fastapi==0.104.1              # Modern web framework
-uvicorn[standard]==0.24.0     # ASGI server
-pydantic==2.5.0               # Data validation
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
 
 # ============================================================================
-# AI & ML
+# AI & MACHINE LEARNING
 # ============================================================================
-sentence-transformers==2.2.2   # Semantic embeddings
-faiss-cpu==1.7.4              # Vector similarity search
-numpy==1.24.3                 # Numerical computing
-torch==2.0.1                  # PyTorch (required by sentence-transformers)
+# Sentence Transformers for semantic embeddings
+sentence-transformers==2.2.2
+
+# PyTorch (required by sentence-transformers)
+torch==2.0.1
+
+# FAISS for vector similarity search
+faiss-cpu==1.7.4
+
+# NumPy for numerical computing
+numpy==1.24.3
+
+# Hugging Face Hub for model downloads
+huggingface-hub>=0.20.0
 
 # ============================================================================
-# AI API CLIENT
+# AI API CLIENT (CRITICAL - Install separately for better error handling)
 # ============================================================================
-cerebras-cloud-sdk==1.0.0     # Cerebras AI client
-
-# ============================================================================
-# WEB SCRAPING (Optional - for future features)
-# ============================================================================
-beautifulsoup4==4.12.2        # HTML parsing
-lxml==4.9.3                   # XML/HTML processing
-requests==2.31.0              # HTTP library
-
-# ============================================================================
-# TELEGRAM BOT (Optional)
-# ============================================================================
-python-telegram-bot==20.7     # Telegram Bot API wrapper
+# Cerebras Cloud SDK for AI reasoning
+cerebras-cloud-sdk==1.0.0
 
 # ============================================================================
 # UTILITIES
 # ============================================================================
-python-dotenv==1.0.0          # Environment variable management
+# HTTP requests (for add_documents.py)
+requests==2.31.0
+
+# ============================================================================
+# NOTES
+# ============================================================================
+# - All versions are tested and compatible
+# - cerebras-cloud-sdk is critical for AI reasoning
+# - torch is large (~700MB) but required
+# - sentence-transformers needs torch to run
+# - Modal will cache this image for faster cold starts
