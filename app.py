@@ -1,5 +1,5 @@
 """
-FastAPI Application - Fixed for Modal v0.63+
+FastAPI Application - Fixed for Modal v0.63+ with Module Mounting
 """
 
 from fastapi import FastAPI, Request, HTTPException, status
@@ -21,8 +21,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-sys.path.append(os.path.dirname(__file__))
-
 # ============================================================================
 # MODAL CONFIGURATION (v0.63+ Compatible)
 # ============================================================================
@@ -34,6 +32,13 @@ volume = modal.Volume.from_name("intelligence-data-vol", create_if_missing=True)
 
 # Secrets
 cerebras_secret = modal.Secret.from_name("cerebras-api-key")
+
+# Mount local files (THIS IS THE FIX!)
+# This tells Modal to include agent.py in the deployment
+code_mount = modal.Mount.from_local_file(
+    local_path="agent.py",
+    remote_path="/root/agent.py"
+)
 
 # Docker image with all dependencies
 image = (
@@ -493,12 +498,13 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 # ============================================================================
-# MODAL FUNCTIONS
+# MODAL FUNCTIONS (WITH MOUNT)
 # ============================================================================
 
 @app.function(
     image=image,
     volumes={"/cache": volume},
+    mounts=[code_mount],  # THIS IS THE KEY FIX!
     secrets=[cerebras_secret],
     container_idle_timeout=300,
     keep_warm=1,
@@ -511,6 +517,12 @@ def execute_mission(request: MissionRequest):
     """Execute intelligence mission"""
     try:
         logger.info(f"Mission: {request.mission[:100]}...")
+        
+        # Verify agent.py exists
+        import os
+        if not os.path.exists("/root/agent.py"):
+            raise Exception("agent.py not found in container!")
+        
         from agent import IntelligenceSystem
         agent = IntelligenceSystem()
         result = agent.execute_mission({"mission": request.mission})
@@ -522,6 +534,7 @@ def execute_mission(request: MissionRequest):
 @app.function(
     image=image,
     volumes={"/cache": volume},
+    mounts=[code_mount],  # Also add here!
     secrets=[cerebras_secret]
 )
 @web_app.post("/api/add_document")
