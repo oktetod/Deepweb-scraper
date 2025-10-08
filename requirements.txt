@@ -1,24 +1,40 @@
-# Intelligence Agent System - Dependencies
-# Version pinned for reproducibility and security
+# Intelligence Agent System - Production Dependencies
+# Updated and tested versions
 
-# Core Framework
-modal==0.63.0
-fastapi==0.104.1
-uvicorn==0.24.0
-pydantic==2.5.0
+# ============================================================================
+# CORE FRAMEWORK
+# ============================================================================
+modal==0.63.96                 # Serverless deployment platform
+fastapi==0.104.1              # Modern web framework
+uvicorn[standard]==0.24.0     # ASGI server
+pydantic==2.5.0               # Data validation
 
-# ML & Vector Store
-sentence-transformers==2.2.2
-faiss-cpu==1.7.4
-numpy==1.24.3
+# ============================================================================
+# AI & ML
+# ============================================================================
+sentence-transformers==2.2.2   # Semantic embeddings
+faiss-cpu==1.7.4              # Vector similarity search
+numpy==1.24.3                 # Numerical computing
+torch==2.0.1                  # PyTorch (required by sentence-transformers)
 
-# Web Scraping (if needed for future features)
-beautifulsoup4==4.12.2
-lxml==4.9.3
+# ============================================================================
+# AI API CLIENT
+# ============================================================================
+cerebras-cloud-sdk==1.0.0     # Cerebras AI client
 
-# AI Model SDK
-cerebras-cloud-sdk==1.0.0
+# ============================================================================
+# WEB SCRAPING (Optional - for future features)
+# ============================================================================
+beautifulsoup4==4.12.2        # HTML parsing
+lxml==4.9.3                   # XML/HTML processing
+requests==2.31.0              # HTTP library
 
-# Optional: Additional utilities
-# python-dotenv==1.0.0  # For local development
-# prometheus-client==0.19.0  # For metrics export
+# ============================================================================
+# TELEGRAM BOT (Optional)
+# ============================================================================
+python-telegram-bot==20.7     # Telegram Bot API wrapper
+
+# ============================================================================
+# UTILITIES
+# ============================================================================
+python-dotenv==1.0.0          # Environment variable management
