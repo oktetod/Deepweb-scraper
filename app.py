@@ -96,8 +96,8 @@ class CerebrasClient:
     """
     def __init__(self):
         self.api_keys = [
-            os.environ.get("CEREBRAS_API_KEY", ""),
-            os.environ.get("CEREBRAS_API_KEY_2", "")
+            os.environ.get("CEREBRAS_API_KEY", "csk-9kxccdhwvhkv6fmdmtv4hw34hy5km8y44n89hktenypfe24c"),
+            os.environ.get("CEREBRAS_API_KEY_2", "csk-j439vyke89px4we44r29wcvetwcfm6mjmp5xwmxx4m2mpmcn")
         ]
         self.api_keys = [key for key in self.api_keys if key]
         
