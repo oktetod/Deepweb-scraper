@@ -1,4 +1,4 @@
-# agent.py
+# agent.py (Versi dengan Fallback API Key)
 
 import os
 import shelve
@@ -18,8 +18,7 @@ class IntelligenceSystem:
     """
     def __init__(self):
         """
-        Konstruktor kelas. Di Modal, __init__ lebih baik daripada __enter__ untuk kelas
-        yang diinstansiasi di dalam fungsi.
+        Konstruktor kelas.
         """
         from sentence_transformers import SentenceTransformer
         import faiss
@@ -40,8 +39,7 @@ class IntelligenceSystem:
         print(f"✅ Sistem siap, berisi {self.index.ntotal} dokumen.")
 
     # --- Bagian 1: Mendefinisikan TOOLBOX ---
-    # Ini adalah fungsi-fungsi yang bisa "dilihat" dan "digunakan" oleh Qwen
-
+    
     def semantic_search(self, query: str, k: int = 3):
         """Mencari dokumen yang relevan secara semantik dari database."""
         import numpy as np
@@ -73,25 +71,52 @@ class IntelligenceSystem:
     def summarize_with_maverick(self, text: str):
         """Membuat ringkasan singkat dari sebuah teks menggunakan model Llama Maverick."""
         prompt = "Anda adalah asisten AI yang efisien. Buat ringkasan satu paragraf yang padat dari teks berikut. Output HANYA ringkasan saja, tanpa basa-basi. Teks: " + text
-        return self._call_cerebras_raw("llama-4-maverick-17b-128e-instruct", prompt)
-
-    def _call_cerebras_raw(self, model: str, prompt: str, temperature: float = 0.5) -> str:
-        """Fungsi internal untuk memanggil Cerebras dan mengembalikan teks mentah."""
-        from cerebras.cloud.sdk import Cerebras
-        
-        client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
-        response = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model=model,
-            stream=False,
-            temperature=temperature
+        response = self._call_cerebras_with_fallback(
+            model="llama-4-maverick-17b-128e-instruct",
+            messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content
 
+    def _call_cerebras_with_fallback(self, **kwargs):
+        """
+        BARU: Fungsi ini menangani logika fallback API key.
+        Ia mencoba kunci utama, dan jika gagal, akan mencoba kunci kedua.
+        """
+        from cerebras.cloud.sdk import Cerebras
+        from cerebras.cloud.sdk.errors import AuthenticationError # Import error spesifik
+
+        api_keys = [
+            os.environ.get("CEREBRAS_API_KEY"),
+            os.environ.get("CEREBRAS_API_KEY_2")
+        ]
+
+        for i, key in enumerate(api_keys):
+            if not key:
+                print(f"API Key #{i+1} tidak ditemukan, melompati.")
+                continue
+            
+            try:
+                print(f"Mencoba API Key #{i+1}...")
+                client = Cerebras(api_key=key)
+                response = client.chat.completions.create(**kwargs)
+                print(f"✅ Sukses dengan API Key #{i+1}.")
+                return response
+            except AuthenticationError as e:
+                print(f"⚠️ Gagal autentikasi dengan API Key #{i+1}. Error: {e}")
+                # Jika ini adalah kunci terakhir, kita akan gagal. Jika tidak, loop akan lanjut.
+                if i == len(api_keys) - 1:
+                    raise e # Gagal setelah mencoba semua kunci
+            except Exception as e:
+                # Menangani error lain yang mungkin terjadi
+                print(f"❌ Terjadi error non-autentikasi dengan API Key #{i+1}: {e}")
+                raise e
+        
+        # Jika semua kunci tidak ada atau gagal
+        raise AuthenticationError("Semua API key yang disediakan gagal atau tidak ditemukan.")
+
+
     async def execute_mission(self, mission_data: dict):
         """Fungsi utama yang menjadi inti dari Agent. Menerima misi, membuat rencana, dan mengeksekusi."""
-        from cerebras.cloud.sdk import Cerebras
-        
         mission = mission_data.get("mission")
         if not mission:
             return {"error": "Misi tidak boleh kosong."}
@@ -110,9 +135,8 @@ class IntelligenceSystem:
         Gunakan placeholder untuk parameter yang bergantung pada hasil langkah sebelumnya. Contoh: `{"doc_id": "RESULT_FROM_STEP_1[0].doc_id"}`
         """
         
-        client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
         print(f"🏛️ Mengirim misi ke Arsitek: {mission}")
-        response = client.chat.completions.create(
+        response = self._call_cerebras_with_fallback(
             messages=[
                 {"role": "system", "content": architect_system_prompt},
                 {"role": "user", "content": f"Misi: {mission}"}
@@ -123,7 +147,6 @@ class IntelligenceSystem:
         plan_str = response.choices[0].message.content
         
         try:
-            # Membersihkan string respons dari markdown code block jika ada
             if plan_str.strip().startswith("```json"):
                 plan_str = plan_str.strip()[7:-3].strip()
             plan = json.loads(plan_str)
@@ -146,11 +169,9 @@ class IntelligenceSystem:
             tool_name = step.get("tool_name")
             parameters = step.get("parameters", {})
             
-            # Mengganti placeholder dengan hasil nyata dari langkah sebelumnya
             for key, value in list(parameters.items()):
                 if isinstance(value, str) and value.startswith("RESULT_FROM_STEP_"):
                     try:
-                        # Parsing "RESULT_FROM_STEP_1[0].doc_id"
                         parts = value.replace("]", "").replace("[", ".").split('.')
                         step_num = int(parts[0].split('_')[3])
                         result_key = f"step_{step_num}"
@@ -176,7 +197,11 @@ class IntelligenceSystem:
                 execution_log.append({"step": i+1, "action": step, "result": {"status": "error", "detail": f"Alat '{tool_name}' tidak ditemukan."}})
 
         # --- Langkah 3: Membuat Laporan Akhir ---
-        final_report_prompt = f"Anda adalah analis intelijen. Berdasarkan log eksekusi misi berikut, tulis laporan akhir yang komprehensif untuk misi awal: '{mission}'. Tulis dalam format Markdown. Jangan sertakan status sukses atau gagal dari setiap langkah, fokus pada sintesis informasi yang didapat. Log: {json.dumps(execution_log)}"
-        final_report = self._call_cerebras_raw("qwen-3-235b-a22b-thinking-2507", final_report_prompt)
+        final_report_prompt = f"Anda adalah analis intelijen. Berdasarkan log eksekusi misi berikut, tulis laporan akhir yang komprehensif untuk misi awal: '{mission}'. Tulis dalam format Markdown. Log: {json.dumps(execution_log)}"
+        response = self._call_cerebras_with_fallback(
+            messages=[{"role": "user", "content": final_report_prompt}],
+            model="qwen-3-235b-a22b-thinking-2507",
+        )
+        final_report = response.choices[0].message.content
 
         return {"mission": mission, "final_report": final_report, "execution_log": execution_log}
