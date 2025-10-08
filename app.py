@@ -1,5 +1,5 @@
 """
-FastAPI Application - Fixed for Modal v0.63+ with Module Mounting
+FastAPI Application - Fixed for Modal v0.63+ (Correct Mount Syntax)
 """
 
 from fastapi import FastAPI, Request, HTTPException, status
@@ -33,14 +33,7 @@ volume = modal.Volume.from_name("intelligence-data-vol", create_if_missing=True)
 # Secrets
 cerebras_secret = modal.Secret.from_name("cerebras-api-key")
 
-# Mount local files (THIS IS THE FIX!)
-# This tells Modal to include agent.py in the deployment
-code_mount = modal.Mount.from_local_file(
-    local_path="agent.py",
-    remote_path="/root/agent.py"
-)
-
-# Docker image with all dependencies
+# Docker image with all dependencies + agent.py copied into image
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
@@ -54,6 +47,7 @@ image = (
         "cerebras-cloud-sdk==1.0.0",
         "numpy==1.24.3",
     )
+    .copy_local_file("agent.py", "/root/agent.py")  # ← CORRECT WAY in v0.63+
     .env({"PYTHONPATH": "/root"})
 )
 
@@ -498,13 +492,12 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 # ============================================================================
-# MODAL FUNCTIONS (WITH MOUNT)
+# MODAL FUNCTIONS (No mounts needed - file is in image!)
 # ============================================================================
 
 @app.function(
     image=image,
     volumes={"/cache": volume},
-    mounts=[code_mount],  # THIS IS THE KEY FIX!
     secrets=[cerebras_secret],
     container_idle_timeout=300,
     keep_warm=1,
@@ -517,12 +510,6 @@ def execute_mission(request: MissionRequest):
     """Execute intelligence mission"""
     try:
         logger.info(f"Mission: {request.mission[:100]}...")
-        
-        # Verify agent.py exists
-        import os
-        if not os.path.exists("/root/agent.py"):
-            raise Exception("agent.py not found in container!")
-        
         from agent import IntelligenceSystem
         agent = IntelligenceSystem()
         result = agent.execute_mission({"mission": request.mission})
@@ -534,7 +521,6 @@ def execute_mission(request: MissionRequest):
 @app.function(
     image=image,
     volumes={"/cache": volume},
-    mounts=[code_mount],  # Also add here!
     secrets=[cerebras_secret]
 )
 @web_app.post("/api/add_document")
